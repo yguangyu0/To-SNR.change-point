@@ -1,54 +1,14 @@
-#################################################################################
-########### Simulation Codes For Poisson Model With One Change Point  ###########
-#################################################################################
+############################################################################################
+###########  Simulation Codes For Poisson Segmented Model With One Change Point  ###########
+############################################################################################
 #install.packages("segmented")
 
-set.seed(2023106)
+#set.seed(2023106)
 library(segmented)
 
 ###################################################
 #############   Functions  ########################
 ###################################################
-NR_semismooth<-function(tau0_1)
-{
-  #generate initial value of betas
-  X_tau_1 =  as.numeric(X > tau0_1) * ( X - tau0_1 )
-  glm.inital <- glm(Y~X+ X_tau_1,family="poisson",control = list(maxit = 25))
-  tau0=c(as.numeric(coef( glm.inital)),tau0_1)
-  
-  erro = FALSE;eta = rep(1,4); j = 1
-  while (any(abs(eta) > 1e-7) & j<=100 & erro==FALSE)
-  {
-    ### generate initial values ###
-    X_tau_1 =  as.numeric(X > tau0[4]) * ( X - tau0[4] )
-    I_tau_1 = as.numeric(X > tau0[4])
-    
-    mui=tau0[1]+tau0[2]*X+tau0[3]*X_tau_1
-    mu0=exp(mui);A = Y-mu0
-    
-    ### Calculate U and J ###
-    U =c(mean(A),mean(A*X),mean(A*X_tau_1),-tau0[3]*mean(A*I_tau_1))
-    U = matrix(U,ncol=1,nrow=4)
-    J =c(mean(mu0),         mean(mu0*X),        mean(mu0*X_tau_1),   - tau0[3]*mean(mu0*I_tau_1),
-         mean(mu0*X),       mean(mu0*X*X),      mean(mu0*X_tau_1*X), - tau0[3]*mean(mu0*X*I_tau_1),        
-         mean(mu0*X_tau_1), mean(mu0*X*X_tau_1), mean(mu0*X_tau_1^2),- tau0[3]*mean(mu0*X_tau_1),
-         -tau0[3]*mean(mu0*I_tau_1),-tau0[3]*mean(mu0*X*I_tau_1),- tau0[3]*mean(mu0*X_tau_1),   tau0[3]^2*mean(mu0*I_tau_1))
-    J=matrix(J,ncol=4,nrow=4)
-    
-    tryCatch( {eta =  solve(J)%*%U},error=function(cond) {erro <<-  TRUE})
-    if(erro ==TRUE| any(is.na(eta))) {eta=rep(0,4)}
-    if (erro == FALSE)
-    { ### Update estimates ###
-      eta =as.numeric(eta)
-      tau0 = tau0 + eta}
-    j=j+1
-  }
-  Test = (erro == FALSE &  tau0[4]<max(X) &tau0[4]>min(X))
-  tau.out =NA
-  if ( Test )  { tau.out = tau0}
-  return(tau.out[4])
-}
-
 ToSNR_poisson<-function(tau0)
 {
   erro = FALSE;eta = 1; j = 1
@@ -112,23 +72,25 @@ sd_poisson<- function(tau0_1)
 
 
 
-############## Settings ##################
-#### true values beta0, beta1, beta2, tau ####
-
+##########################################################################
+#####                    Data Generating Procedure               #########
+##########################################################################
+#number of MC replicates
 Nsim = 1000
 #beta=2.5
 beta=1.8
 tau=0.75
+
+#sample size: 250, 500 and 1000
 nlst=c(250,500,1000)
 length.nlst=length(nlst)
 for (nn in 1:length.nlst)
 {
+  #sample size: n
   n=nlst[nn]
   
-  i=1;i.2=1
-  tau_est1 = NULL;tau_est2 = NULL;tau_seg=NULL;tau_chngpt=NULL
-  sd_est1 = NULL; sd_est2 = NULL; sd_seg=NULL;sd_chngpt=NULL
-  cov1 = 0; cov2 = 0; cov.seg=0;cov.chngpt=0
+  i=1;tau_est1 = NULL;tau_seg=NULL;sd_est1 = NULL; sd_seg=NULL;
+  cov1 = 0; cov.seg=0;
   ####### Simulation Procedure ###########
   for(i in 1:Nsim)
   {
@@ -155,19 +117,6 @@ for (nn in 1:length.nlst)
     tau_est1[i] = tau.out
     cov1 = cov1 + as.numeric(tau.out-1.96*sd.out <= tau & tau.out+1.96*sd.out>=tau)
   
-    ### NR_semismooth method ###
-    tau.out2=NR_semismooth(0.7)
-    if (!is.na( tau.out2))
-    {
-    sd.out2= sd_poisson(tau.out2)
-    sd_est2[i.2] = sd.out2
-    tau_est2[i.2] = tau.out2
-    cov2 = cov2 + as.numeric(tau.out2-1.96*sd.out2 <= tau & tau.out2+1.96*sd.out2>=tau)
-    i.2=i.2+1
-    }
-
-    
-    i=i+1
     
   }
   
@@ -178,7 +127,7 @@ for (nn in 1:length.nlst)
   mse_seg1=sqrt(bias_seg1^2+sd_seg1^2)
   mean_sd_seg = mean(sd_seg)
   print("Muggeo Method")
-  print(c(round(c(bias_seg1,sd_seg1,mse_seg1,mean_sd_seg)*10,3),round(cov.seg/(i-1)*100,1)))
+  print(c(round(c(bias_seg1,sd_seg1,mse_seg1,mean_sd_seg)*10,3),round(cov.seg/i*100,1)))
   
   
   #To-SNR method
@@ -187,15 +136,8 @@ for (nn in 1:length.nlst)
   mse_tau1=sqrt(bias_tau1^2+sd_tau1 ^2)
   mean_sd1 = mean(sd_est1)
   print("To-SNR Method")
-  print(c(round(c(bias_tau1,sd_tau1,mse_tau1,mean_sd1)*10,3),round(cov1/(i-1)*100,1)))
-  
-  #NR-semismooth method
-  bias_tau2 = mean(tau_est2) - tau
-  sd_tau2 = sd(tau_est2)
-  mse_tau2=sqrt(bias_tau2^2+sd_tau2 ^2)
-  mean_sd2 = mean(sd_est2)
-  print("NR-Semi Method")
-  print(c(round(c(bias_tau2,sd_tau2,mse_tau2,mean_sd2)*10,3),round(cov2/(i-1)*100,1)))
+  print(c(round(c(bias_tau1,sd_tau1,mse_tau1,mean_sd1)*10,3),round(cov1/i*100,1)))
+
   
   cat("\n\n")
 }

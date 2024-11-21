@@ -1,81 +1,11 @@
-#################################################################################
-########### Simulation Codes For Poisson Model With Four Change Points ##########
-######          Each Covariate with Two Change Points                      ###### 
-#################################################################################
+###########################################################################################
+########### Simulation Codes For Poisson Segmented Model With Four Change Points ##########
+######                  Each Covariate Has Two Change Points                         ###### 
+###########################################################################################
 
-set.seed(20231113)
+#set.seed(20231113)
 library("segmented")
 ############# Functions For To-SNR Algorithm ####################
-NR_semismooth<-function(tau00)
-{
-  X1_tau1 =  as.numeric(X1 > tau00[1]) * ( X1 - tau00[1] )
-  X1_tau2 =  as.numeric(X1 > tau00[2]) * ( X1 - tau00[2] )
-  X2_tau1 =  as.numeric(X2 > tau00[3]) * ( X2 - tau00[3] )
-  X2_tau2 =  as.numeric(X2 > tau00[4]) * ( X2 - tau00[4] )
-  glm.inital <- glm(Y~X1+ X1_tau1+X1_tau2+X2+X2_tau1+X2_tau2+Z,family="poisson",
-                    control = list(maxit = 25))
-  tau0=c(as.numeric(coef( glm.inital)),tau00)
-  
-  erro = FALSE; eta = rep(1,12); j = 1
-  while (any(abs(eta) > 1e-7) & j<=100 & erro==FALSE)
-  {
-    ### generate initial values ###
-    X1_tau1 =  as.numeric(X1 > tau0[9]) * ( X1 - tau0[9] )
-    X1_tau2 =  as.numeric(X1 > tau0[10]) *( X1 - tau0[10])
-    X2_tau1 =  as.numeric(X2 > tau0[11]) *( X2 - tau0[11])
-    X2_tau2 =  as.numeric(X2 > tau0[12]) *( X2 - tau0[12])
-    
-    mui=tau0[1] + tau0[2]*X1 + tau0[3] * as.numeric(X1 > tau0[9]) * ( X1 - tau0[9] ) + tau0[4] * as.numeric(X1 > tau0[10]) * ( X1 - tau0[10] ) + 
-      tau0[5]*X2 + tau0[6]*as.numeric(X2 > tau0[11]) * (X2- tau0[11])+tau0[7] * as.numeric(X2 > tau0[12]) * ( X2 - tau0[12] )+ tau0[8]*Z
-    mu0=exp(mui);A = Y-mu0
-    
-    I1_tau1 = as.numeric(X1 > tau0[9]);I1_tau2 = as.numeric(X1 > tau0[10])
-    I2_tau1 = as.numeric(X2 > tau0[11]);I2_tau2 = as.numeric(X2 > tau0[12])
-    ### Calculate U and J ###
-    Un=c(mean(A),mean(A*X1),mean(A*X1_tau1),mean(A*X1_tau2),mean(A*X2),mean(A*X2_tau1),mean(A*X2_tau2),mean(A*Z),
-         -tau0[3]*mean(A*I1_tau1),-tau0[4]*mean(A*I1_tau2),-tau0[6]*mean(A*I2_tau1),-tau0[7]*mean(A*I2_tau2))
-    Un = matrix(Un,nrow=12)
-    
-    
-    Jn =   c(mean(mu0),          mean(mu0*X1),         mean(mu0*X1_tau1),         mean(mu0*X1_tau2),        mean(mu0*X2),            mean(mu0*X2_tau1),             mean(mu0*X2_tau2),               mean(mu0*Z),              -tau0[3]*mean(mu0*I1_tau1),      -tau0[3]*mean(mu0*X1_tau1),          -tau0[3]*mean(mu0*X2*I1_tau1),        -tau0[3]*mean(mu0*X2_tau2*I1_tau1),
-             mean(mu0*X1),       mean(mu0*X1*X1),      mean(mu0*X1_tau1*X1),     mean(mu0*X1_tau2*X1),     mean(mu0*X2*X1),         mean(mu0*X2_tau1*X1),          mean(mu0*X2_tau2*X1),            mean(mu0*Z*X1),           -tau0[4]*mean(mu0*I1_tau2),      -tau0[4]*mean(mu0*X1_tau1*I1_tau2),  -tau0[4]*mean(mu0*X2*I1_tau2),        -tau0[4]*mean(mu0*X2_tau2*I1_tau2),
-             mean(mu0*X1_tau1),  mean(mu0*X1*X1_tau1), mean(mu0*X1_tau1*X1_tau1),mean(mu0*X1_tau2*X1_tau1), mean(mu0*X2*X1_tau1),   mean(mu0*X2_tau1*X1_tau1),     mean(mu0*X2_tau2*X1_tau1),       mean(mu0*Z*X1_tau1),      -tau0[6]*mean(mu0*I2_tau1),      -tau0[6]*mean(mu0*X1_tau1*I2_tau1),  -tau0[6]*mean(mu0*X2*I2_tau1),        -tau0[6]*mean(mu0*X2_tau2*I2_tau1),
-             mean(mu0*X1_tau2),  mean(mu0*X1*X1_tau2), mean(mu0*X1_tau1*X1_tau2),mean(mu0*X1_tau2*X1_tau2), mean(mu0*X2*X1_tau2),   mean(mu0*X2_tau1*X1_tau2),     mean(mu0*X2_tau2*X1_tau2),       mean(mu0*Z*X1_tau2),      -tau0[7]*mean(mu0*I2_tau2),      -tau0[7]*mean(mu0*X1_tau1*I2_tau2),  -tau0[7]*mean(mu0*X2*I2_tau2),        -tau0[7]*mean(mu0*X2_tau2),  
-             mean(mu0*X2),       mean(mu0*X1*X2),      mean(mu0*X1_tau1*X2),     mean(mu0*X1_tau2*X2),      mean(mu0*X2*X2),        mean(mu0*X2_tau1*X2),          mean(mu0*X2_tau2*X2),            mean(mu0*Z*X2),           -tau0[3]*mean(mu0*X1*I1_tau1),   -tau0[3]*mean(mu0*X1_tau2*I1_tau1),  -tau0[3]*mean(mu0*X2_tau1*I1_tau1),   -tau0[3]*mean(mu0*Z*I1_tau1),  
-             mean(mu0*X2_tau1),  mean(mu0*X1*X2_tau1), mean(mu0*X1_tau1*X2_tau1),mean(mu0*X1_tau2*X2_tau1), mean(mu0*X2*X2_tau1),   mean(mu0*X2_tau1*X2_tau1),     mean(mu0*X2_tau2*X2_tau1),       mean(mu0*Z*X2_tau1),      -tau0[4]*mean(mu0*X1*I1_tau2),   -tau0[4]*mean(mu0*X1_tau2),          -tau0[4]*mean(mu0*X2_tau1*I1_tau2),   -tau0[4]*mean(mu0*Z*I1_tau2), 
-             mean(mu0*X2_tau2),  mean(mu0*X1*X2_tau2), mean(mu0*X1_tau1*X2_tau2),mean(mu0*X1_tau2*X2_tau2), mean(mu0*X2*X2_tau2),   mean(mu0*X2_tau1*X2_tau2),     mean(mu0*X2_tau2*X2_tau2),       mean(mu0*Z*X2_tau2),      -tau0[6]*mean(mu0*X1*I2_tau1),   -tau0[6]*mean(mu0*X1_tau2*I2_tau1),  -tau0[6]*mean(mu0*X2_tau1),           -tau0[6]*mean(mu0*Z*I2_tau1), 
-             mean(mu0*Z),        mean(mu0*X1*Z),       mean(mu0*X1_tau1*Z),      mean(mu0*X1_tau2*Z),       mean(mu0*X2*Z),         mean(mu0*X2_tau1*Z),           mean(mu0*X2_tau2*Z),             mean(mu0*Z*Z),            -tau0[7]*mean(mu0*X1*I2_tau2),   -tau0[7]*mean(mu0*X1_tau2*I2_tau2),  -tau0[7]*mean(mu0*X2_tau1*I2_tau2),   -tau0[7]*mean(mu0*Z*I2_tau2),
-             -tau0[3]*mean(mu0*I1_tau1), -tau0[3]*mean(mu0*X1*I1_tau1),-tau0[3]*mean(mu0*X1_tau1),        -tau0[3]*mean(mu0*X1_tau2*I1_tau1),tau0[3]^2*mean(mu0*I1_tau1),tau0[3]*tau0[4]*mean(mu0*I1_tau1*I1_tau2), tau0[3]*tau0[6]*mean(mu0*I1_tau1*I2_tau1),   tau0[3]*tau0[7]*mean(mu0*I1_tau1*I2_tau2),
-             -tau0[4]*mean(mu0*I1_tau2), -tau0[4]*mean(mu0*X1*I1_tau2),-tau0[4]*mean(mu0*X1_tau1*I1_tau2),-tau0[4]*mean(mu0*X1_tau2),                
-             -tau0[6]*mean(mu0*I2_tau1),-tau0[6]*mean(mu0*X1*I2_tau1),-tau0[6]*mean(mu0*X1_tau1*I2_tau1), -tau0[6]*mean(mu0*X1_tau2*I2_tau1),             
-             -tau0[7]*mean(mu0*I2_tau2), -tau0[7]*mean(mu0*X1*I2_tau2),-tau0[7]*mean(mu0*X1_tau1*I2_tau2),-tau0[7]*mean(mu0*X1_tau2*I2_tau2),             
-             
-             
-             -tau0[3]*mean(mu0*I1_tau1),        -tau0[4]*mean(mu0*I1_tau2),        -tau0[6]*mean(mu0*I2_tau1),        -tau0[7]*mean(mu0*I2_tau2),         -tau0[3]*mean(mu0*X1*I1_tau1),     -tau0[4]*mean(mu0*X1*I1_tau2),    -tau0[6]*mean(mu0*X1*I2_tau1),     -tau0[7]*mean(mu0*X1*I2_tau2),        tau0[3]^2*mean(mu0*I1_tau1),                tau0[3]*tau0[4]*mean(mu0*I1_tau1*I1_tau2),  tau0[3]*tau0[6]*mean(mu0*I1_tau1*I2_tau1),   tau0[3]*tau0[7]*mean(mu0*I1_tau1*I2_tau2),
-             -tau0[3]*mean(mu0*X1_tau1),        -tau0[4]*mean(mu0*X1_tau1*I1_tau2),-tau0[6]*mean(mu0*X1_tau1*I2_tau1),-tau0[7]*mean(mu0*X1_tau1*I2_tau2), -tau0[3]*mean(mu0*X1_tau2*I1_tau1),-tau0[4]*mean(mu0*X1_tau2),       -tau0[6]*mean(mu0*X1_tau2*I2_tau1),-tau0[7]*mean(mu0*X1_tau2*I2_tau2),   tau0[4]*tau0[3]*mean(mu0*I1_tau2*I1_tau1),  tau0[4]^2*mean(mu0*I1_tau2),                tau0[4]*tau0[6]*mean(mu0*I1_tau2*I2_tau1),   tau0[4]*tau0[7]*mean(mu0*I1_tau2*I2_tau2), 
-             -tau0[3]*mean(mu0*X2*I1_tau1),     -tau0[4]*mean(mu0*X2*I1_tau2),     -tau0[6]*mean(mu0*X2*I2_tau1),     -tau0[7]*mean(mu0*X2*I2_tau2),      -tau0[3]*mean(mu0*X2_tau1*I1_tau1),-tau0[4]*mean(mu0*X2_tau1*I1_tau2),-tau0[6]*mean(mu0*X2_tau1),       -tau0[7]*mean(mu0*X2_tau1*I2_tau2),   tau0[6]*tau0[3]*mean(mu0*I2_tau1*I1_tau1),  tau0[6]*tau0[4]*mean(mu0*I2_tau1*I1_tau2),  tau0[6]^2*mean(mu0*I2_tau1),                 tau0[6]*tau0[7]*mean(mu0*I2_tau1*I2_tau2),
-             -tau0[3]*mean(mu0*X2_tau2*I1_tau1),-tau0[4]*mean(mu0*X2_tau2*I1_tau2),-tau0[6]*mean(mu0*X2_tau2*I2_tau1),-tau0[7]*mean(mu0*X2_tau2),         -tau0[3]*mean(mu0*Z*I1_tau1),      -tau0[4]*mean(mu0*Z*I1_tau2),      -tau0[6]*mean(mu0*Z*I2_tau1),     -tau0[7]*mean(mu0*Z*I2_tau2),         tau0[7]*tau0[3]*mean(mu0*I2_tau2*I1_tau1),  tau0[7]*tau0[4]*mean(mu0*I2_tau2*I1_tau2),  tau0[7]*tau0[6]*mean(mu0*I2_tau2*I2_tau1),   tau0[7]^2*mean(mu0*I2_tau2))
-    Jn = matrix(Jn,ncol=12,nrow=12)
-    
-    tryCatch( {eta = solve(Jn)%*%Un},error=function(cond) {erro <<-  TRUE})
-    if(erro ==TRUE| any(is.na(eta))) {eta=rep(0,12)}
-    if (erro == FALSE)
-    {
-      eta =as.numeric(eta)
-      ### Update Tau ###
-      tau_up = tau0 + eta
-      tau0 = tau_up
-    }
-    
-    j=j+1}
-  
-  tau.out = c(NA,NA,NA,NA)
-  Test = (erro == FALSE)
-  if ( Test){ tau.out = tau0[9:12]}
-  
-  return(tau.out)
-}
-
 ToSNR_poisson<-function(tau0)
 {
   erro = FALSE;eta = rep(1,4); j = 1
@@ -159,21 +89,27 @@ sd_poisson<- function(tau.out)
     sd.out = c(sd_1, sd_2, sd_3, sd_4)}
   return(sd.out)
 }
+###################################################
+#########        END OF FUNCTIONS    ##############
+###################################################
+
+
 
 ##########################################################################
-##########################################################################
 #####                    Data Generating Procedure               #########
+##########################################################################
 #true parameters and true change points
 theta = c(1.5, 2, -5, 4,-2,6,-8)
 tau=c(0.4,0.7,0.8,1.4)
 eta = 0.2
 
 #number of MC replicates
-Nsim = 10
+Nsim = 1000
 
 #initial value of change points
 tau00=c(0.45,0.8,0.9,1.5) 
 
+#sample size: 250, 500 and 1000
 nlst=c(250,500,1000)
 length.nlst=length(nlst)
 for (nn in 1:length.nlst)
@@ -200,7 +136,7 @@ for (nn in 1:length.nlst)
   mu = exp(t)
   Y = rpois(n, lambda=mu)
   
-  ### segment method ###
+  ### Muggeo method ###
   erro = FALSE
   o1<-glm(Y~X1+X2+Z,family=poisson)
   tryCatch( {o.seg=segmented(o1,seg.Z =~X1+X2,psi=list(X1=tau00[1:2],X2=tau00[3:4]),
@@ -240,8 +176,6 @@ for (nn in 1:length.nlst)
       
       i=i+1}}
   o=o+1
-  
-  #if(o%%100==0){print(o)}#count simulation iteration times
   
 }
 
